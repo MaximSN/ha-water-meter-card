@@ -131,7 +131,7 @@ class WaterMeterCard extends HTMLElement {
     var showNumbers = c.show_battery_signal_values === true, info = "";
     if (c.battery_sensor) info += this._renderIndicator("battery",battery,showNumbers,c.battery_sensor);
     if (c.signal_sensor) info += this._renderIndicator("signal",signal,showNumbers,c.signal_sensor);
-    var canSave = [hot,cold].every(function(d){return !!d.sensor && !!d.correctionEntity && !!d.numberEntity;});
+    var canSave = [hot,cold].every(function(d){return !!d.sensor && !!d.correctionEntity && !!d.numberEntity && d.coefficient != null;});
     var html = '<style>' +
       ':host{display:block;color:var(--primary-text-color)}ha-card{padding:16px;overflow:hidden}' +
       '.head{display:flex;align-items:center;gap:10px;min-height:30px}.room{font-size:16px;font-weight:600;flex:1;min-width:0;overflow-wrap:anywhere}' +
