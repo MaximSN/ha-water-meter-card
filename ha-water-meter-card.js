@@ -139,7 +139,7 @@ class WaterMeterCard extends HTMLElement {
     if (confirm) confirm.addEventListener("click",function(){self._confirm();});
     this.shadowRoot.querySelectorAll("ha-relative-time").forEach(function(el){
       el.hass=self._hass;
-      el.datetime=el.getAttribute("datetime");
+      el.datetime=new Date(el.getAttribute("datetime"));
     });
   }
 
