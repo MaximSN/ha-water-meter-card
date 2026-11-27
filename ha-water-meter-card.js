@@ -37,6 +37,14 @@ function sameValue(a,b) {
   return true;
 }
 
+function cleanConfig(config) {
+  var result = Object.assign({},config || {});
+  Object.keys(result).forEach(function(key) {
+    if (result[key] === undefined) delete result[key];
+  });
+  return result;
+}
+
 function cssColor(value,fallback) {
   if (Array.isArray(value) && value.length >= 3) return "rgb(" + value.slice(0,3).map(Number).join(",") + ")";
   return typeof value === "string" && value ? value : fallback;
@@ -244,7 +252,7 @@ class WaterMeterCardEditor extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({mode:"open"});
-    this._config = Object.assign({},DEFAULTS);
+    this._config = {};
     this._hass = null;
     this._form = null;
   }
@@ -257,7 +265,7 @@ class WaterMeterCardEditor extends HTMLElement {
     }
   }
   setConfig(config) {
-    var nextConfig = Object.assign({},DEFAULTS,config);
+    var nextConfig = cleanConfig(config);
     var changed = !sameValue(this._config,nextConfig);
     this._config = nextConfig;
     if (!this._form) {
@@ -265,7 +273,7 @@ class WaterMeterCardEditor extends HTMLElement {
       return;
     }
     if (changed) {
-      this._form.data = Object.assign({},nextConfig);
+      this._form.data = Object.assign({},DEFAULTS,nextConfig);
     }
   }
   _schema() {
@@ -299,7 +307,7 @@ class WaterMeterCardEditor extends HTMLElement {
     this._form.data = Object.assign({},DEFAULTS,this._config);
     this._form.computeLabel = function(schema){return schema.label || schema.name;};
     this._form.addEventListener("value-changed",event => {
-      this._config = Object.assign({},this._config,event.detail.value);
+      this._config = cleanConfig(event.detail.value);
       this.dispatchEvent(new CustomEvent("config-changed",{
         detail:{config:this._config},
         bubbles:true,
