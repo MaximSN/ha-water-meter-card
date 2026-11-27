@@ -1,0 +1,6 @@
+{
+  "name": "Water Meter Card",
+  "content_in_root": true,
+  "filename": "ha-water-meter-card.js",
+  "render_readme": true
+}
