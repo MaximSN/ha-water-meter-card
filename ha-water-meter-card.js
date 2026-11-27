@@ -138,14 +138,14 @@ class WaterMeterCard extends HTMLElement {
       '.device{display:flex;gap:10px;color:var(--secondary-text-color);font-size:12px;align-items:center}.info{display:flex;align-items:center;gap:4px}.indicator{width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center}.indicator svg{width:22px;height:22px;display:block}' +
       '.save{border:0;background:transparent;color:var(--primary-color);cursor:pointer;padding:4px}.save ha-icon{--mdc-icon-size:22px}.save:disabled{opacity:.35;cursor:default}' +
       '.meters{display:flex;flex-direction:column;gap:10px;margin-top:14px}.meter-block{min-width:0}.meter{display:flex;align-items:center;gap:7px;min-height:32px;white-space:nowrap}.drop{width:20px;height:24px;flex:0 0 20px}.drop svg{width:19px;height:23px;display:block}.label{font-weight:400;font-size:16px;min-width:0;overflow:hidden;text-overflow:ellipsis}.meter-no{font-size:16px;font-weight:400;color:var(--secondary-text-color)}.clickable{cursor:pointer}' +
-      '.adjustment{display:flex;align-items:center;gap:5px;margin-left:auto;flex:0 0 auto}.correction{font-size:16px;font-weight:400;white-space:nowrap}.buttons{display:flex;gap:3px;flex:0 0 auto}.buttons button{width:25px;height:25px;border:1px solid var(--divider-color);border-radius:6px;background:var(--secondary-background-color);color:var(--primary-text-color);font-size:17px;cursor:pointer;padding:0;line-height:1}' +
+      '.correction{font-size:13px;font-weight:400;white-space:nowrap}.dialog-adjustment{display:flex;align-items:center;justify-content:flex-end;gap:7px}.buttons{display:flex;gap:3px;flex:0 0 auto}.buttons button{width:25px;height:25px;border:1px solid var(--divider-color);border-radius:6px;background:var(--secondary-background-color);color:var(--primary-text-color);font-size:17px;cursor:pointer;padding:0;line-height:1}' +
       'button:disabled{opacity:.4;cursor:default}.reading{display:flex;align-items:baseline;gap:4px;min-width:0;margin-left:1.5em}.value{font-size:16px;font-weight:400;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}.unit{font-size:11px;color:var(--secondary-text-color)}.secondary{font-size:10px;color:var(--secondary-text-color);margin-top:1px}.secondary ha-relative-time{font-size:inherit}' +
       '.backdrop{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.48);display:flex;align-items:center;justify-content:center;padding:16px}' +
       '.dialog{width:min(520px,100%);max-height:90vh;overflow:auto;background:var(--card-background-color,var(--primary-background-color));color:var(--primary-text-color);border-radius:14px;padding:20px;box-shadow:0 8px 32px rgba(0,0,0,.28)}' +
       '.dialog h2{margin:0 0 8px;font-size:18px}.note{color:var(--secondary-text-color);font-size:13px;margin-bottom:16px}' +
       'table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:9px 6px;border-bottom:1px solid var(--divider-color);text-align:right;font-variant-numeric:tabular-nums}th:first-child,td:first-child{text-align:left}th{color:var(--secondary-text-color);font-weight:500}' +
       '.actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}.actions button{border:0;border-radius:8px;padding:9px 16px;cursor:pointer;font:inherit}.cancel{background:var(--secondary-background-color);color:var(--primary-text-color)}.confirm{background:var(--primary-color);color:var(--text-primary-color,#fff)}' +
-      '@media(max-width:420px){ha-card{padding:12px}.head{gap:7px}.device{gap:6px}.meter{gap:5px}.label,.meter-no,.correction,.value{font-size:14px}.buttons button{width:23px;height:23px}}' +
+      '@media(max-width:420px){ha-card{padding:12px}.head{gap:7px}.device{gap:6px}.meter{gap:5px}.label,.meter-no,.value{font-size:14px}.correction{font-size:12px}.buttons button{width:23px;height:23px}}' +
       '</style><ha-card><div class="head"><div class="room">' + esc(c.name) + '</div><div class="device">' + info + '</div>' +
       '<button class="save" title="Зафиксировать показания" aria-label="Зафиксировать показания" ' + (!canSave || this._busy ? "disabled" : "") + '><ha-icon icon="mdi:content-save"></ha-icon></button></div>' +
       '<div class="meters">' + this._renderChannel(hot) + this._renderChannel(cold) + '</div></ha-card>' +
@@ -181,18 +181,10 @@ class WaterMeterCard extends HTMLElement {
   }
 
   _renderChannel(d) {
-    var correction=d.displayCorrection!=null&&(d.displayCorrection!==0||this._config.show_zero_correction===true)
-      ? '<span class="correction" style="color:'+(d.displayCorrection>0?"#43a047":d.displayCorrection<0?"#e53935":"var(--secondary-text-color)")+'">'+(d.displayCorrection>0?"+":d.displayCorrection<0?"−":"")+fmt(Math.abs(d.displayCorrection))+'</span>'
-      : "";
-    var unavailable=!d.correctionEntity||d.correction==null||this._busy;
-    var minusDisabled=unavailable||d.correction<=d.correctionMin?"disabled":"";
-    var plusDisabled=unavailable||d.correction>=d.correctionMax?"disabled":"";
     var icon='<span class="drop"><svg viewBox="0 0 24 28" aria-hidden="true"><path d="M12 1.8C9.2 6.1 3.4 12.2 3.4 17.1a8.6 8.6 0 0 0 17.2 0C20.6 12.2 14.8 6.1 12 1.8Z" fill="'+esc(d.color)+'"/></svg></span>';
-    var adjustment=(correction||"")+'<span class="buttons"><button type="button" data-adjust data-entity="'+esc(d.correctionEntity)+'" data-delta="-1" aria-label="Уменьшить" '+minusDisabled+'>−</button>'+
-      '<button type="button" data-adjust data-entity="'+esc(d.correctionEntity)+'" data-delta="1" aria-label="Увеличить" '+plusDisabled+'>+</button></span>';
     var secondary=this._renderSecondary(d);
     return '<div class="meter-block"><div class="meter">'+icon+'<span class="label clickable" data-more-info="'+esc(d.sensor)+'" title="Открыть сенсор">'+esc(d.label)+'</span><span class="meter-no clickable" data-more-info="'+esc(d.sensor)+'" title="Открыть сенсор">'+esc(d.meter)+'</span>'+
-      '<span class="adjustment">'+adjustment+'</span><span class="reading clickable" data-more-info="'+esc(d.sensor)+'" title="Открыть сенсор"><span class="value">'+fmt(d.value)+'</span>'+(d.unit?'<span class="unit">'+esc(d.unit)+'</span>':"")+'</span></div>'+
+      '<span class="reading clickable" data-more-info="'+esc(d.sensor)+'" title="Открыть сенсор"><span class="value">'+fmt(d.value)+'</span>'+(d.unit?'<span class="unit">'+esc(d.unit)+'</span>':"")+'</span></div>'+
       (secondary?'<div class="secondary">'+secondary+'</div>':"")+'</div>';
   }
 
@@ -208,8 +200,19 @@ class WaterMeterCard extends HTMLElement {
   _renderDialog(hot,cold) {
     var rows = [hot,cold].map(function(d){
       var unit = d.unit ? ' ' + esc(d.unit) : "";
-      return '<tr><td>' + esc(d.label) + '</td><td>' + fmt(d.totalValue) + unit + '</td><td>' + fmt(d.nativeDisplayValue) + unit + '</td><td>' + fmt(d.displayCorrection) + unit + '</td></tr>';
-    }).join("");
+      var correctionVisible = d.displayCorrection != null && (d.displayCorrection !== 0 || this._config.show_zero_correction === true);
+      var correctionText = correctionVisible
+        ? (d.displayCorrection > 0 ? "+" : d.displayCorrection < 0 ? "−" : "") + fmt(Math.abs(d.displayCorrection)) + unit
+        : "—";
+      var correctionColor = d.displayCorrection > 0 ? "#43a047" : d.displayCorrection < 0 ? "#e53935" : "var(--secondary-text-color)";
+      var unavailable = !d.correctionEntity || d.correction == null || this._busy;
+      var minusDisabled = unavailable || d.correction <= d.correctionMin ? "disabled" : "";
+      var plusDisabled = unavailable || d.correction >= d.correctionMax ? "disabled" : "";
+      var controls = '<span class="dialog-adjustment"><span class="correction" style="color:' + correctionColor + '">' + correctionText + '</span><span class="buttons">' +
+        '<button type="button" data-adjust data-entity="' + esc(d.correctionEntity) + '" data-delta="-1" aria-label="Уменьшить" ' + minusDisabled + '>−</button>' +
+        '<button type="button" data-adjust data-entity="' + esc(d.correctionEntity) + '" data-delta="1" aria-label="Увеличить" ' + plusDisabled + '>+</button></span></span>';
+      return '<tr><td>' + esc(d.label) + '</td><td>' + fmt(d.totalValue) + unit + '</td><td>' + fmt(d.nativeDisplayValue) + unit + '</td><td>' + controls + '</td></tr>';
+    },this).join("");
     return '<div class="backdrop"><section class="dialog" role="dialog" aria-modal="true" aria-label="Фиксация показаний">' +
       '<h2>Фиксация показаний</h2><div class="note">Для фиксации показаний нажмите кнопку пробуждения на счетчике и кнопку Сохранить на этой форме.</div>' +
       '<table><thead><tr><th></th><th>Новое значение</th><th>Текущее значение</th><th>Корректировка</th></tr></thead><tbody>' + rows + '</tbody></table>' +
