@@ -92,6 +92,15 @@ class WaterMeterCard extends HTMLElement {
     var value = num(this._hass,sensor);
     var correction = num(this._hass,correctionEntity) || 0;
     var nativeValue = num(this._hass,numberEntity);
+    var correctionAttributes = this._hass && this._hass.states[correctionEntity]
+      ? this._hass.states[correctionEntity].attributes || {}
+      : {};
+    var correctionMin = Number(correctionAttributes.min);
+    var correctionMax = Number(correctionAttributes.max);
+    var correctionStep = Number(correctionAttributes.step);
+    if (!Number.isFinite(correctionMin)) correctionMin = 0;
+    if (!Number.isFinite(correctionMax)) correctionMax = Number.MAX_SAFE_INTEGER;
+    if (!Number.isFinite(correctionStep) || correctionStep <= 0) correctionStep = 1;
     return {
       key:key,
       label:c[hot ? "hot_label" : "cold_label"],
@@ -102,6 +111,9 @@ class WaterMeterCard extends HTMLElement {
       numberEntity:numberEntity,
       value:value,
       correction:correction,
+      correctionMin:correctionMin,
+      correctionMax:correctionMax,
+      correctionStep:correctionStep,
       nativeValue:nativeValue,
       coefficient:coefficient,
       displayCorrection:correction * coefficient,
@@ -173,10 +185,12 @@ class WaterMeterCard extends HTMLElement {
     var correction=d.displayCorrection!==0||this._config.show_zero_correction===true
       ? '<span class="correction" style="color:'+(d.displayCorrection>0?"#43a047":d.displayCorrection<0?"#e53935":"var(--secondary-text-color)")+'">'+(d.displayCorrection>0?"+":d.displayCorrection<0?"−":"")+fmt(Math.abs(d.displayCorrection))+'</span>'
       : "";
-    var disabled=!d.correctionEntity||this._busy?"disabled":"";
+    var unavailable=!d.correctionEntity||d.correction==null||this._busy;
+    var minusDisabled=unavailable||d.correction<=d.correctionMin?"disabled":"";
+    var plusDisabled=unavailable||d.correction>=d.correctionMax?"disabled":"";
     var icon='<span class="drop"><svg viewBox="0 0 24 28" aria-hidden="true"><path d="M12 1.8C9.2 6.1 3.4 12.2 3.4 17.1a8.6 8.6 0 0 0 17.2 0C20.6 12.2 14.8 6.1 12 1.8Z" fill="'+esc(d.color)+'"/></svg></span>';
-    var adjustment=(correction||"")+'<span class="buttons"><button type="button" data-adjust data-entity="'+esc(d.correctionEntity)+'" data-delta="-1" aria-label="Уменьшить" '+disabled+'>−</button>'+
-      '<button type="button" data-adjust data-entity="'+esc(d.correctionEntity)+'" data-delta="1" aria-label="Увеличить" '+disabled+'>+</button></span>';
+    var adjustment=(correction||"")+'<span class="buttons"><button type="button" data-adjust data-entity="'+esc(d.correctionEntity)+'" data-delta="-1" aria-label="Уменьшить" '+minusDisabled+'>−</button>'+
+      '<button type="button" data-adjust data-entity="'+esc(d.correctionEntity)+'" data-delta="1" aria-label="Увеличить" '+plusDisabled+'>+</button></span>';
     var secondary=this._renderSecondary(d);
     return '<div class="meter-block"><div class="meter">'+icon+'<span class="label clickable" data-more-info="'+esc(d.sensor)+'" title="Открыть сенсор">'+esc(d.label)+'</span><span class="meter-no clickable" data-more-info="'+esc(d.sensor)+'" title="Открыть сенсор">'+esc(d.meter)+'</span>'+
       '<span class="adjustment">'+adjustment+'</span><span class="reading clickable" data-more-info="'+esc(d.sensor)+'" title="Открыть сенсор"><span class="value">'+fmt(d.totalValue)+'</span>'+(d.unit?'<span class="unit">'+esc(d.unit)+'</span>':"")+'</span></div>'+
@@ -208,14 +222,21 @@ class WaterMeterCard extends HTMLElement {
     if (!entityId || this._busy) return;
     var current = num(this._hass,entityId);
     var entityState = this._hass.states[entityId];
-    var step = Number(entityState && entityState.attributes && entityState.attributes.step);
+    var attributes = entityState && entityState.attributes || {};
+    var min = Number(attributes.min);
+    var max = Number(attributes.max);
+    var step = Number(attributes.step);
+    if (!Number.isFinite(min)) min = 0;
+    if (!Number.isFinite(max)) max = Number.MAX_SAFE_INTEGER;
     if (!Number.isFinite(step) || step <= 0) step = 1;
     if (current == null) {
       alert("Проверьте сущность корректировки и шаг софт-корректировки.");
       return;
     }
     try {
-      await this._hass.callService("input_number","set_value",{entity_id:entityId,value:round(current + direction * step)});
+      var target = round(Math.max(min,Math.min(max,current + direction * step)));
+      if (target === current) return;
+      await this._hass.callService("input_number","set_value",{entity_id:entityId,value:target});
     } catch(e) {
       alert("Не удалось изменить корректировку: " + (e.message || e));
     }
@@ -266,7 +287,7 @@ class WaterMeterCard extends HTMLElement {
       var reset = await Promise.all(channels.map(async function(d,i){
         if (!confirmed[i]) return false;
         try {
-          await self._hass.callService("input_number","set_value",{entity_id:d.correctionEntity,value:0});
+          await self._hass.callService("input_number","set_value",{entity_id:d.correctionEntity,value:d.correctionMin});
           return true;
         } catch(e) { return false; }
       }));
