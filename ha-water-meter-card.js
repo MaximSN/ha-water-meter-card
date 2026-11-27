@@ -1,4 +1,4 @@
-const VERSION = "0.1.1";
+const VERSION = "0.1.2";
 const DEFAULTS = {
   name: "Счётчики воды",
   hot_label: "ГВС",
@@ -25,6 +25,19 @@ function fmt(n) {
   return n == null ? "—" : new Intl.NumberFormat("ru-RU", {maximumFractionDigits:3}).format(n);
 }
 function round(n) { return Number(Number(n).toFixed(6)); }
+function sameValue(a,b) {
+  if (a === b) return true;
+  if (a == null || b == null || typeof a !== "object" || typeof b !== "object") return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  var aKeys = Object.keys(a).sort();
+  var bKeys = Object.keys(b).sort();
+  if (aKeys.length !== bKeys.length) return false;
+  for (var i = 0; i < aKeys.length; i++) {
+    if (aKeys[i] !== bKeys[i] || !sameValue(a[aKeys[i]],b[bKeys[i]])) return false;
+  }
+  return true;
+}
+
 function cssColor(value,fallback) {
   if (Array.isArray(value) && value.length >= 3) return "rgb(" + value.slice(0,3).map(Number).join(",") + ")";
   return typeof value === "string" && value ? value : fallback;
@@ -245,14 +258,15 @@ class WaterMeterCardEditor extends HTMLElement {
     }
   }
   setConfig(config) {
-    this._config = Object.assign({},DEFAULTS,config);
+    var nextConfig = Object.assign({},DEFAULTS,config);
+    var changed = !sameValue(this._config,nextConfig);
+    this._config = nextConfig;
     if (!this._form) {
       this._createForm();
       return;
     }
-    var nextData = Object.assign({},DEFAULTS,this._config);
-    if (JSON.stringify(this._form.data) !== JSON.stringify(nextData)) {
-      this._form.data = nextData;
+    if (changed) {
+      this._form.data = Object.assign({},nextConfig);
     }
   }
   _schema() {
