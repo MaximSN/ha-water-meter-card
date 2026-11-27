@@ -329,7 +329,7 @@ class WaterMeterCardEditor extends HTMLElement {
       {name:"hot_sensor",label:"Сенсор показаний",selector:entity("sensor")},
       {name:"hot_correction",label:"Корректировка",selector:entity("input_number")},
       {name:"hot_number",label:"Целевой канал прибора (L3)",selector:entity("number")},
-      {name:"hot_coefficient",label:"Коэффициент пересчёта",selector:{number:{min:0.000001,max:1000000,step:0.01,mode:"box"}}},
+      {name:"hot_coefficient",label:"Коэффициент пересчёта",selector:{number:{min:0.001,max:1000000,step:0.001,mode:"box"}}},
       {name:"hot_label",label:"Название счётчика",selector:{text:{}}},
       {name:"hot_color",label:"Цвет счётчика",selector:{color_rgb:{}}},
 
@@ -337,7 +337,7 @@ class WaterMeterCardEditor extends HTMLElement {
       {name:"cold_sensor",label:"Сенсор показаний",selector:entity("sensor")},
       {name:"cold_correction",label:"Корректировка",selector:entity("input_number")},
       {name:"cold_number",label:"Целевой канал прибора (L5)",selector:entity("number")},
-      {name:"cold_coefficient",label:"Коэффициент пересчёта",selector:{number:{min:0.000001,max:1000000,step:0.01,mode:"box"}}},
+      {name:"cold_coefficient",label:"Коэффициент пересчёта",selector:{number:{min:0.001,max:1000000,step:0.001,mode:"box"}}},
       {name:"cold_label",label:"Название счётчика",selector:{text:{}}},
       {name:"cold_color",label:"Цвет счётчика",selector:{color_rgb:{}}},
 
