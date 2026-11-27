@@ -7,7 +7,8 @@ const DEFAULTS = {
   correction_step: 0.001,
   show_correction: true,
   show_zero_correction: false,
-  show_battery_signal_values: false
+  show_battery_signal_values: false,
+  secondary_info: "last-changed"
 };
 
 function esc(v) {
@@ -97,7 +98,8 @@ class WaterMeterCard extends HTMLElement {
       correction:num(this._hass,correctionEntity) || 0,
       nativeValue:num(this._hass,numberEntity),
       unit:(this._hass && this._hass.states[sensor] && this._hass.states[sensor].attributes && this._hass.states[sensor].attributes.unit_of_measurement) || "",
-      lastChanged:(this._hass && this._hass.states[sensor] && this._hass.states[sensor].last_changed) || ""
+      lastChanged:(this._hass && this._hass.states[sensor] && this._hass.states[sensor].last_changed) || "",
+      lastUpdated:(this._hass && this._hass.states[sensor] && this._hass.states[sensor].last_updated) || ""
     };
   }
 
@@ -114,9 +116,9 @@ class WaterMeterCard extends HTMLElement {
       '.head{display:flex;align-items:center;gap:10px;min-height:30px}.room{font-size:16px;font-weight:600;flex:1;min-width:0;overflow-wrap:anywhere}' +
       '.device{display:flex;gap:10px;color:var(--secondary-text-color);font-size:12px;align-items:center}.info{display:flex;align-items:center;gap:4px}.indicator{width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center}.indicator svg{width:22px;height:22px;display:block}' +
       '.save{border:0;background:transparent;color:var(--primary-color);cursor:pointer;padding:4px}.save ha-icon{--mdc-icon-size:22px}.save:disabled{opacity:.35;cursor:default}' +
-      '.meters{display:flex;flex-direction:column;gap:10px;margin-top:14px}.meter-block{min-width:0}.meter{display:flex;align-items:center;gap:7px;min-height:32px;white-space:nowrap}.label{font-weight:600;font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis}.meter-no{font-size:11px;color:var(--secondary-text-color)}' +
-      '.correction{font-size:12px;font-weight:600;white-space:nowrap}.buttons{display:flex;gap:3px;flex:0 0 auto}.buttons button{width:25px;height:25px;border:1px solid var(--divider-color);border-radius:6px;background:var(--secondary-background-color);color:var(--primary-text-color);font-size:17px;cursor:pointer;padding:0;line-height:1}' +
-      'button:disabled{opacity:.4;cursor:default}.reading{margin-left:auto;display:flex;align-items:baseline;gap:4px;min-width:0}.value{font-size:16px;font-weight:600;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}.unit{font-size:11px;color:var(--secondary-text-color)}.secondary{font-size:10px;color:var(--secondary-text-color);margin-top:1px}' +
+      '.meters{display:flex;flex-direction:column;gap:10px;margin-top:14px}.meter-block{min-width:0}.meter{display:flex;align-items:center;gap:7px;min-height:32px;white-space:nowrap}.drop{width:20px;height:24px;flex:0 0 20px}.drop svg{width:19px;height:23px;display:block}.label{font-weight:600;font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis}.meter-no{font-size:11px;color:var(--secondary-text-color)}' +
+      '.adjustment{display:flex;align-items:center;gap:5px;margin-left:auto;flex:0 0 auto}.correction{font-size:12px;font-weight:600;white-space:nowrap}.buttons{display:flex;gap:3px;flex:0 0 auto}.buttons button{width:25px;height:25px;border:1px solid var(--divider-color);border-radius:6px;background:var(--secondary-background-color);color:var(--primary-text-color);font-size:17px;cursor:pointer;padding:0;line-height:1}' +
+      'button:disabled{opacity:.4;cursor:default}.reading{display:flex;align-items:baseline;gap:4px;min-width:0;margin-left:1.5em}.value{font-size:16px;font-weight:600;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}.unit{font-size:11px;color:var(--secondary-text-color)}.secondary{font-size:10px;color:var(--secondary-text-color);margin-top:1px}.secondary ha-relative-time{font-size:inherit}' +
       '.backdrop{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.48);display:flex;align-items:center;justify-content:center;padding:16px}' +
       '.dialog{width:min(520px,100%);max-height:90vh;overflow:auto;background:var(--card-background-color,var(--primary-background-color));color:var(--primary-text-color);border-radius:14px;padding:20px;box-shadow:0 8px 32px rgba(0,0,0,.28)}' +
       '.dialog h2{margin:0 0 8px;font-size:18px}.note{color:var(--secondary-text-color);font-size:13px;margin-bottom:16px}' +
@@ -135,6 +137,10 @@ class WaterMeterCard extends HTMLElement {
     if (cancel) cancel.addEventListener("click",function(){if(!self._busy){self._dialog=false;self._render();}});
     var confirm = this.shadowRoot.querySelector(".confirm");
     if (confirm) confirm.addEventListener("click",function(){self._confirm();});
+    this.shadowRoot.querySelectorAll("ha-relative-time").forEach(function(el){
+      el.hass=self._hass;
+      el.datetime=el.getAttribute("datetime");
+    });
   }
 
   _renderIndicator(type,value,showNumber) {
@@ -152,11 +158,22 @@ class WaterMeterCard extends HTMLElement {
       ? '<span class="correction" style="color:'+(d.correction>0?"#43a047":d.correction<0?"#e53935":"var(--secondary-text-color)")+'">'+(d.correction>0?"+":d.correction<0?"−":"")+fmt(Math.abs(d.correction))+'</span>'
       : "";
     var disabled=!d.correctionEntity||this._busy?"disabled":"";
-    var date=d.lastChanged?new Date(d.lastChanged).toLocaleString("ru-RU"):"—";
-    return '<div class="meter-block"><div class="meter"><span class="label">'+esc(d.label)+'</span><span class="meter-no">№ '+esc(d.meter)+'</span>'+correction+
-      '<span class="buttons"><button type="button" data-adjust data-entity="'+esc(d.correctionEntity)+'" data-delta="-1" aria-label="Уменьшить" '+disabled+'>−</button>'+
-      '<button type="button" data-adjust data-entity="'+esc(d.correctionEntity)+'" data-delta="1" aria-label="Увеличить" '+disabled+'>+</button></span>'+
-      '<span class="reading"><span class="value">'+fmt(d.value)+'</span>'+(d.unit?'<span class="unit">'+esc(d.unit)+'</span>':"")+'</span></div><div class="secondary">'+esc(date)+'</div></div>';
+    var icon='<span class="drop"><svg viewBox="0 0 24 28" aria-hidden="true"><path d="M12 1.8C9.2 6.1 3.4 12.2 3.4 17.1a8.6 8.6 0 0 0 17.2 0C20.6 12.2 14.8 6.1 12 1.8Z" fill="'+esc(d.color)+'"/></svg></span>';
+    var adjustment=(correction||"")+'<span class="buttons"><button type="button" data-adjust data-entity="'+esc(d.correctionEntity)+'" data-delta="-1" aria-label="Уменьшить" '+disabled+'>−</button>'+
+      '<button type="button" data-adjust data-entity="'+esc(d.correctionEntity)+'" data-delta="1" aria-label="Увеличить" '+disabled+'>+</button></span>';
+    var secondary=this._renderSecondary(d);
+    return '<div class="meter-block"><div class="meter">'+icon+'<span class="label">'+esc(d.label)+'</span><span class="meter-no">№ '+esc(d.meter)+'</span>'+
+      '<span class="adjustment">'+adjustment+'</span><span class="reading"><span class="value">'+fmt(d.value)+'</span>'+(d.unit?'<span class="unit">'+esc(d.unit)+'</span>':"")+'</span></div>'+
+      (secondary?'<div class="secondary">'+secondary+'</div>':"")+'</div>';
+  }
+
+  _renderSecondary(d) {
+    var mode=this._config.secondary_info || "last-changed";
+    if (mode === "none") return "";
+    if (mode === "entity-id") return esc(d.sensor || "");
+    var timestamp=mode === "last-updated" ? d.lastUpdated : d.lastChanged;
+    if (!timestamp) return "—";
+    return '<ha-relative-time class="relative-time" datetime="'+esc(timestamp)+'"></ha-relative-time>';
   }
 
   _renderDialog(hot,cold) {
@@ -305,7 +322,13 @@ class WaterMeterCardEditor extends HTMLElement {
 
       {name:"correction_step",label:"Шаг корректировки",selector:{number:{min:0.000001,max:100,step:0.001,mode:"box"}}},
       {name:"show_zero_correction",label:"Показывать нулевые значения корректировки",selector:{boolean:{}}},
-      {name:"show_battery_signal_values",label:"Показывать числовые значения заряда батареи и уровня сигнала",selector:{boolean:{}}}
+      {name:"show_battery_signal_values",label:"Показывать числовые значения заряда батареи и уровня сигнала",selector:{boolean:{}}},
+      {name:"secondary_info",label:"Secondary info",selector:{select:{mode:"dropdown",options:[
+        {value:"last-changed",label:"Last changed"},
+        {value:"last-updated",label:"Last updated"},
+        {value:"entity-id",label:"Entity ID"},
+        {value:"none",label:"Не показывать"}
+      ]}}}
     ];
   }
 
