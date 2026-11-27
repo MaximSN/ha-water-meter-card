@@ -35,6 +35,12 @@ class WaterMeterCard extends HTMLElement {
     this._dialog = false;
     this._busy = false;
   }
+  static getConfigElement() {
+    return document.createElement("ha-water-meter-card-editor");
+  }
+  static getStubConfig() {
+    return { name: "Счётчики воды", hot_label: "ГВС", cold_label: "ХВС", correction_step: 0.001, show_correction: true };
+  }
   setConfig(config) {
     if (!config) throw new Error("Не задана конфигурация карточки");
     this._config = Object.assign({}, DEFAULTS, config);
