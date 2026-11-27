@@ -5,7 +5,6 @@ const DEFAULTS = {
   hot_color: [229, 57, 53],
   cold_color: [30, 136, 229],
   show_correction: true,
-  show_zero_correction: false,
   show_battery_signal_values: false,
   secondary_info: "last-changed",
 };
@@ -65,7 +64,7 @@ class WaterMeterCard extends HTMLElement {
     return document.createElement("ha-water-meter-card-editor");
   }
   static getStubConfig() {
-    return { name: "Счётчики воды", hot_label: "ГВС", cold_label: "ХВС", show_correction: true, show_zero_correction: false, show_battery_signal_values: false };
+    return { name: "Счётчики воды", hot_label: "ГВС", hot_color: [229, 57, 53], show_battery_signal_values: false };
   }
   setConfig(config) {
     if (!config) throw new Error("Не задана конфигурация карточки");
@@ -126,12 +125,15 @@ class WaterMeterCard extends HTMLElement {
 
   _render() {
     if (!this.shadowRoot || !this._config || !this._hass) return;
-    var c = this._config, hot = this._channel("hot"), cold = this._channel("cold");
+    var c = this._config;
+    var channels = ["hot","cold"].map(this._channel.bind(this)).filter(function(d) {
+      return !!(d.sensor || d.correctionEntity || d.numberEntity || d.meter);
+    });
     var battery = num(this._hass,c.battery_sensor), signal = num(this._hass,c.signal_sensor);
     var showNumbers = c.show_battery_signal_values === true, info = "";
     if (c.battery_sensor) info += this._renderIndicator("battery",battery,showNumbers,c.battery_sensor);
     if (c.signal_sensor) info += this._renderIndicator("signal",signal,showNumbers,c.signal_sensor);
-    var canSave = [hot,cold].every(function(d){return !!d.sensor && !!d.correctionEntity && !!d.numberEntity && d.coefficient != null;});
+    var canSave = channels.length > 0 && channels.every(function(d){return !!d.sensor && !!d.correctionEntity && !!d.numberEntity && d.coefficient != null;});
     var html = '<style>' +
       ':host{display:block;color:var(--primary-text-color)}ha-card{padding:16px;overflow:hidden}' +
       '.head{display:flex;align-items:center;gap:10px;min-height:30px}.room{font-size:16px;font-weight:600;flex:1;min-width:0;overflow-wrap:anywhere}' +
@@ -148,8 +150,8 @@ class WaterMeterCard extends HTMLElement {
       '@media(max-width:420px){ha-card{padding:12px}.head{gap:7px}.device{gap:6px}.meter{gap:5px}.label,.meter-no,.value{font-size:14px}.correction{font-size:12px}.buttons button{width:23px;height:23px}}' +
       '</style><ha-card><div class="head"><div class="room">' + esc(c.name) + '</div><div class="device">' + info + '</div>' +
       '<button class="save" title="Зафиксировать показания" aria-label="Зафиксировать показания" ' + (!canSave || this._busy ? "disabled" : "") + '><ha-icon icon="mdi:content-save"></ha-icon></button></div>' +
-      '<div class="meters">' + this._renderChannel(hot) + this._renderChannel(cold) + '</div></ha-card>' +
-      (this._dialog ? this._renderDialog(hot,cold) : "");
+      '<div class="meters">' + channels.map(this._renderChannel.bind(this)).join("") + '</div></ha-card>' +
+      (this._dialog ? this._renderDialog(channels) : "");
     this.shadowRoot.innerHTML = html;
     var self = this, save = this.shadowRoot.querySelector(".save");
     if (save) save.addEventListener("click",function(){if(!save.disabled){self._dialog=true;self._render();}});
@@ -197,13 +199,13 @@ class WaterMeterCard extends HTMLElement {
     return '<ha-relative-time class="relative-time" datetime="'+esc(timestamp)+'"></ha-relative-time>';
   }
 
-  _renderDialog(hot,cold) {
-    var rows = [hot,cold].map(function(d){
+  _renderDialog(channels) {
+    var rows = channels.map(function(d){
       var unit = d.unit ? ' ' + esc(d.unit) : "";
-      var correctionVisible = d.displayCorrection != null && (d.displayCorrection !== 0 || this._config.show_zero_correction === true);
+      var correctionVisible = d.displayCorrection != null && d.displayCorrection !== 0;
       var correctionText = correctionVisible
-        ? (d.displayCorrection > 0 ? "+" : d.displayCorrection < 0 ? "−" : "") + fmt(Math.abs(d.displayCorrection)) + unit
-        : "—";
+        ? (d.displayCorrection > 0 ? "+" : "−") + fmt(Math.abs(d.displayCorrection)) + unit
+        : "";
       var correctionColor = d.displayCorrection > 0 ? "#43a047" : d.displayCorrection < 0 ? "#e53935" : "var(--secondary-text-color)";
       var unavailable = !d.correctionEntity || d.correction == null || this._busy;
       var minusDisabled = unavailable || d.correction <= d.correctionMin ? "disabled" : "";
@@ -247,9 +249,11 @@ class WaterMeterCard extends HTMLElement {
   async _confirm() {
     if (this._busy) return;
     var self = this;
-    var channels = [this._channel("hot"),this._channel("cold")];
-    if (channels.some(function(d){return !d.sensor || !d.numberEntity || !d.correctionEntity || d.totalValue == null || d.coefficient == null;})) {
-      alert("Для фиксации выберите итоговые сенсоры, сущности number и input_number для обоих каналов.");
+    var channels = ["hot","cold"].map(this._channel.bind(this)).filter(function(d) {
+      return !!(d.sensor || d.correctionEntity || d.numberEntity || d.meter);
+    });
+    if (!channels.length || channels.some(function(d){return !d.sensor || !d.numberEntity || !d.correctionEntity || d.totalValue == null || d.coefficient == null;})) {
+      alert("Для фиксации заполните сенсор показаний, канал счётчика и корректировку для каждого настроенного канала.");
       return;
     }
     this._busy = true;
@@ -319,52 +323,53 @@ class WaterMeterCardEditor extends HTMLElement {
     this.attachShadow({mode:"open"});
     this._config = {};
     this._hass = null;
-    this._form = null;
+    this._forms = {};
   }
+
   set hass(value) {
     this._hass = value;
-    if (this._form) {
-      this._form.hass = value;
-    } else {
-      this._createForm();
-    }
+    Object.keys(this._forms).forEach(function(key) {
+      this._forms[key].hass = value;
+    },this);
+    if (!this._forms.common) this._createForm();
   }
+
   setConfig(config) {
-    var nextConfig = cleanConfig(config);
-    var changed = !sameValue(this._config,nextConfig);
-    this._config = nextConfig;
-    if (!this._form) {
+    this._config = cleanConfig(config);
+    if (!this._forms.common) {
       this._createForm();
-      return;
-    }
-    if (changed) {
-      this._form.data = Object.assign({},DEFAULTS,nextConfig);
+    } else {
+      this._renderForms();
     }
   }
-  _schema() {
-    var entity=function(domain){return {entity:{domain:domain}};};
+
+  _entity(domain) {
+    return {entity:{domain:domain}};
+  }
+
+  _commonSchema() {
     return [
       {name:"name",label:"Название карточки",selector:{text:{}}},
-      {name:"battery_sensor",label:"Сенсор заряда батареи",selector:entity("sensor")},
-      {name:"signal_sensor",label:"Сенсор уровня сигнала",selector:entity("sensor")},
+      {name:"battery_sensor",label:"Сенсор батареи",selector:this._entity("sensor")},
+      {name:"signal_sensor",label:"Сенсор уровня сигнала",selector:this._entity("sensor")},
+      {name:"show_battery_signal_values",label:"Отображать числовые значения батареи и уровня сигнала",selector:{boolean:{}}}
+    ];
+  }
 
-      {name:"hot_meter",label:"Номер счётчика",selector:{text:{}}},
-      {name:"hot_sensor",label:"Сенсор показаний",selector:entity("sensor")},
-      {name:"hot_correction",label:"Корректировка",selector:entity("input_number")},
-      {name:"hot_number",label:"Целевой канал прибора (L3)",selector:entity("number")},
-      {name:"hot_label",label:"Название счётчика",selector:{text:{}}},
-      {name:"hot_color",label:"Цвет счётчика",selector:{color_rgb:{}}},
+  _channelSchema(prefix) {
+    return [
+      {name:prefix+"_meter",label:"Номер счётчика",selector:{text:{}}},
+      {name:prefix+"_label",label:"Название счётчика",selector:{text:{}}},
+      {name:prefix+"_number",label:"Канал счётчика",selector:this._entity("number")},
+      {name:prefix+"_sensor",label:"Сенсор показаний",selector:this._entity("sensor")},
+      {name:prefix+"_correction",label:"Корректировка",selector:this._entity("input_number")},
+      {name:prefix+"_color",label:"Цвет иконки",selector:{color_rgb:{}}}
+    ];
+  }
 
-      {name:"cold_meter",label:"Номер счётчика",selector:{text:{}}},
-      {name:"cold_sensor",label:"Сенсор показаний",selector:entity("sensor")},
-      {name:"cold_correction",label:"Корректировка",selector:entity("input_number")},
-      {name:"cold_number",label:"Целевой канал прибора (L5)",selector:entity("number")},
-      {name:"cold_label",label:"Название счётчика",selector:{text:{}}},
-      {name:"cold_color",label:"Цвет счётчика",selector:{color_rgb:{}}},
-
-      {name:"show_zero_correction",label:"Показывать нулевые значения корректировки",selector:{boolean:{}}},
-      {name:"show_battery_signal_values",label:"Показывать числовые значения заряда батареи и уровня сигнала",selector:{boolean:{}}},
-      {name:"secondary_info",label:"Secondary info",selector:{select:{mode:"dropdown",options:[
+  _extraSchema() {
+    return [
+      {name:"secondary_info",label:"Дополнительная информация",selector:{select:{mode:"dropdown",options:[
         {value:"last-changed",label:"Last changed"},
         {value:"last-updated",label:"Last updated"},
         {value:"entity-id",label:"Entity ID"},
@@ -373,31 +378,73 @@ class WaterMeterCardEditor extends HTMLElement {
     ];
   }
 
+  _hasSecondChannel() {
+    return this._config.second_channel_enabled === true ||
+      ["cold_meter","cold_number","cold_sensor","cold_correction"].some(function(key) {
+        return this._config[key] !== undefined && this._config[key] !== "";
+      },this);
+  }
+
   _createForm() {
-    if (!this.shadowRoot || !this._hass || this._form) return;
-    this.shadowRoot.innerHTML = "<ha-form></ha-form>";
-    this._form = this.shadowRoot.querySelector("ha-form");
-    this._form.hass = this._hass;
-    this._form.schema = this._schema();
-    this._form.data = Object.assign({},DEFAULTS,this._config);
-    this._form.computeLabel = function(schema){return schema.label || schema.name;};
-    this._form.addEventListener("value-changed",event => {
-      var formConfig = Object.assign({},event.detail.value);
-      this._schema().forEach(function(item) {
-        if (item.selector && item.selector.text && formConfig[item.name] === undefined) {
-          formConfig[item.name] = "";
-        }
-      });
-      this._config = cleanConfig(formConfig);
+    if (!this.shadowRoot || !this._hass || this._forms.common) return;
+    this.shadowRoot.innerHTML =
+      '<style>' +
+      ':host{display:block}.editor-section{display:block;margin:0 0 18px;padding:0 0 14px;border-bottom:1px solid var(--divider-color)}' +
+      '.editor-section h3{font-size:14px;font-weight:600;margin:0 0 8px;color:var(--primary-text-color)}' +
+      '.editor-section[hidden],#add-channel[hidden]{display:none!important}' +
+      '#add-channel{display:flex;align-items:center;justify-content:center;width:38px;height:38px;margin:0 0 18px;border:1px solid var(--divider-color);border-radius:50%;background:var(--secondary-background-color);color:var(--primary-text-color);font-size:26px;cursor:pointer}' +
+      '</style>' +
+      '<section class="editor-section"><h3>Карточка</h3><ha-form id="common"></ha-form></section>' +
+      '<section class="editor-section"><h3>Канал 1</h3><ha-form id="channel1"></ha-form></section>' +
+      '<button id="add-channel" type="button" aria-label="Добавить второй канал">+</button>' +
+      '<section class="editor-section" id="second-section" hidden><h3>Канал 2</h3><ha-form id="channel2"></ha-form></section>' +
+      '<section class="editor-section"><h3>Дополнительная информация</h3><ha-form id="extra"></ha-form></section>';
+
+    ["common","channel1","channel2","extra"].forEach(function(key) {
+      var form = this.shadowRoot.getElementById(key);
+      form.hass = this._hass;
+      form.computeLabel = function(schema){return schema.label || schema.name;};
+      form.addEventListener("value-changed",function(event) {
+        this._config = Object.assign({},this._config,event.detail.value);
+        this._config = cleanConfig(this._config);
+        this.dispatchEvent(new CustomEvent("config-changed",{
+          detail:{config:this._config},
+          bubbles:true,
+          composed:true
+        }));
+      }.bind(this));
+      this._forms[key] = form;
+    },this);
+
+    this.shadowRoot.getElementById("add-channel").addEventListener("click",function() {
+      this._config.second_channel_enabled = true;
+      this._renderForms();
       this.dispatchEvent(new CustomEvent("config-changed",{
         detail:{config:this._config},
         bubbles:true,
         composed:true
       }));
-    });
+    }.bind(this));
+    this._renderForms();
+  }
+
+  _renderForms() {
+    if (!this._forms.common) return;
+    this._forms.common.schema = this._commonSchema();
+    this._forms.channel1.schema = this._channelSchema("hot");
+    this._forms.channel2.schema = this._channelSchema("cold");
+    this._forms.extra.schema = this._extraSchema();
+
+    this._forms.common.data = Object.assign({},DEFAULTS,this._config);
+    this._forms.channel1.data = Object.assign({},DEFAULTS,this._config);
+    this._forms.channel2.data = Object.assign({},DEFAULTS,this._config);
+    this._forms.extra.data = Object.assign({},DEFAULTS,this._config);
+
+    var hasSecond = this._hasSecondChannel();
+    this.shadowRoot.getElementById("second-section").hidden = !hasSecond;
+    this.shadowRoot.getElementById("add-channel").hidden = hasSecond;
   }
 }
-
 if (!customElements.get("ha-water-meter-card")) customElements.define("ha-water-meter-card",WaterMeterCard);
 if (!customElements.get("ha-water-meter-card-editor")) customElements.define("ha-water-meter-card-editor",WaterMeterCardEditor);
 window.customCards=window.customCards||[];
