@@ -198,7 +198,7 @@ class WaterMeterCard extends HTMLElement {
       if (unsubscribe) unsubscribe();
 
       var reset = await Promise.all(channels.map(async function(d,i){
-        if (!confirmed[i] || calls[i].status !== "fulfilled") return false;
+        if (!confirmed[i]) return false;
         try {
           await self._hass.callService("input_number","set_value",{entity_id:d.correctionEntity,value:0});
           return true;
