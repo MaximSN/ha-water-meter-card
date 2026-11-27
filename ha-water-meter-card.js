@@ -307,7 +307,13 @@ class WaterMeterCardEditor extends HTMLElement {
     this._form.data = Object.assign({},DEFAULTS,this._config);
     this._form.computeLabel = function(schema){return schema.label || schema.name;};
     this._form.addEventListener("value-changed",event => {
-      this._config = cleanConfig(event.detail.value);
+      var formConfig = Object.assign({},event.detail.value);
+      this._schema().forEach(function(item) {
+        if (item.selector && item.selector.text && formConfig[item.name] === undefined) {
+          formConfig[item.name] = "";
+        }
+      });
+      this._config = cleanConfig(formConfig);
       this.dispatchEvent(new CustomEvent("config-changed",{
         detail:{config:this._config},
         bubbles:true,
