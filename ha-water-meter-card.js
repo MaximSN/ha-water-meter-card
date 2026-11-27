@@ -116,9 +116,9 @@ class WaterMeterCard extends HTMLElement {
       correctionStep:correctionStep,
       nativeValue:nativeValue,
       coefficient:coefficient,
-      displayCorrection:correction * coefficient,
+      displayCorrection:correction / coefficient,
       totalValue:value == null ? null : value + correction * coefficient,
-      nativeDisplayValue:nativeValue == null ? null : nativeValue * coefficient,
+      nativeDisplayValue:nativeValue == null ? null : nativeValue / coefficient,
       unit:(this._hass && this._hass.states[sensor] && this._hass.states[sensor].attributes && this._hass.states[sensor].attributes.unit_of_measurement) || "",
       lastChanged:(this._hass && this._hass.states[sensor] && this._hass.states[sensor].last_changed) || "",
       lastUpdated:(this._hass && this._hass.states[sensor] && this._hass.states[sensor].last_updated) || ""
