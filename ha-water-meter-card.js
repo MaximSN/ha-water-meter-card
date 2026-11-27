@@ -194,7 +194,8 @@ class WaterMeterCard extends HTMLElement {
 
   _renderDialog(hot,cold) {
     var rows = [hot,cold].map(function(d){
-      return '<tr><td>' + esc(d.label) + '</td><td>' + fmt(d.totalValue) + '</td><td>' + fmt(d.nativeDisplayValue) + '</td><td>' + fmt(d.displayCorrection) + '</td></tr>';
+      var unit = d.unit ? ' ' + esc(d.unit) : "";
+      return '<tr><td>' + esc(d.label) + '</td><td>' + fmt(d.totalValue) + unit + '</td><td>' + fmt(d.nativeDisplayValue) + unit + '</td><td>' + fmt(d.displayCorrection) + unit + '</td></tr>';
     }).join("");
     return '<div class="backdrop"><section class="dialog" role="dialog" aria-modal="true" aria-label="Фиксация показаний">' +
       '<h2>Фиксация показаний</h2><div class="note">После подтверждения итоговые значения будут отправлены в прибор. Поправка каждого канала обнулится только после подтверждения записи этого канала.</div>' +
