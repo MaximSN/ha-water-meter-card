@@ -428,6 +428,18 @@ class WaterMeterCardEditor extends HTMLElement {
     this._renderForms();
   }
 
+  _formData(keys) {
+    var data = {};
+    keys.forEach(function(key) {
+      if (Object.prototype.hasOwnProperty.call(this._config,key)) {
+        data[key] = this._config[key];
+      } else if (Object.prototype.hasOwnProperty.call(DEFAULTS,key)) {
+        data[key] = DEFAULTS[key];
+      }
+    },this);
+    return data;
+  }
+
   _renderForms() {
     if (!this._forms.common) return;
     this._forms.common.schema = this._commonSchema();
@@ -435,10 +447,10 @@ class WaterMeterCardEditor extends HTMLElement {
     this._forms.channel2.schema = this._channelSchema("cold");
     this._forms.extra.schema = this._extraSchema();
 
-    this._forms.common.data = Object.assign({},DEFAULTS,this._config);
-    this._forms.channel1.data = Object.assign({},DEFAULTS,this._config);
-    this._forms.channel2.data = Object.assign({},DEFAULTS,this._config);
-    this._forms.extra.data = Object.assign({},DEFAULTS,this._config);
+    this._forms.common.data = this._formData(["name","battery_sensor","signal_sensor","show_battery_signal_values"]);
+    this._forms.channel1.data = this._formData(["hot_meter","hot_label","hot_number","hot_sensor","hot_correction","hot_color"]);
+    this._forms.channel2.data = this._formData(["cold_meter","cold_label","cold_number","cold_sensor","cold_correction","cold_color"]);
+    this._forms.extra.data = this._formData(["secondary_info"]);
 
     var hasSecond = this._hasSecondChannel();
     this.shadowRoot.getElementById("second-section").hidden = !hasSecond;
