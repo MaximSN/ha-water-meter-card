@@ -139,7 +139,7 @@ class WaterMeterCard extends HTMLElement {
       '.save{border:0;background:transparent;color:var(--primary-color);cursor:pointer;padding:4px}.save ha-icon{--mdc-icon-size:22px}.save:disabled{opacity:.35;cursor:default}' +
       '.meters{display:flex;flex-direction:column;gap:10px;margin-top:14px}.meter-block{min-width:0}.meter{display:flex;align-items:center;gap:7px;min-height:32px;white-space:nowrap}.drop{width:20px;height:24px;flex:0 0 20px}.drop svg{width:19px;height:23px;display:block}.label{font-weight:400;font-size:16px;min-width:0;overflow:hidden;text-overflow:ellipsis}.meter-no{font-size:16px;font-weight:400;color:var(--secondary-text-color)}.clickable{cursor:pointer}' +
       '.correction{font-size:13px;font-weight:400;white-space:nowrap}.dialog-adjustment{display:flex;align-items:center;justify-content:flex-end;gap:7px}.buttons{display:flex;gap:3px;flex:0 0 auto}.buttons button{width:25px;height:25px;border:1px solid var(--divider-color);border-radius:6px;background:var(--secondary-background-color);color:var(--primary-text-color);font-size:17px;cursor:pointer;padding:0;line-height:1}' +
-      'button:disabled{opacity:.4;cursor:default}.reading{display:flex;align-items:baseline;gap:4px;min-width:0;margin-left:1.5em}.value{font-size:16px;font-weight:400;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}.unit{font-size:11px;color:var(--secondary-text-color)}.secondary{font-size:10px;color:var(--secondary-text-color);margin-top:1px}.secondary ha-relative-time{font-size:inherit}' +
+      'button:disabled{opacity:.4;cursor:default}.reading{display:flex;align-items:baseline;gap:4px;min-width:0;margin-left:auto}.value{font-size:16px;font-weight:400;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}.unit{font-size:11px;color:var(--secondary-text-color)}.secondary{font-size:10px;color:var(--secondary-text-color);margin-top:1px}.secondary ha-relative-time{font-size:inherit}' +
       '.backdrop{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.48);display:flex;align-items:center;justify-content:center;padding:16px}' +
       '.dialog{width:min(520px,100%);max-height:90vh;overflow:auto;background:var(--card-background-color,var(--primary-background-color));color:var(--primary-text-color);border-radius:14px;padding:20px;box-shadow:0 8px 32px rgba(0,0,0,.28)}' +
       '.dialog h2{margin:0 0 8px;font-size:18px}.note{color:var(--secondary-text-color);font-size:13px;margin-bottom:16px}' +
@@ -213,11 +213,11 @@ class WaterMeterCard extends HTMLElement {
         '<button type="button" data-adjust data-entity="' + esc(d.correctionEntity) + '" data-delta="1" aria-label="Увеличить" ' + plusDisabled + '>+</button></span></span>';
       return '<tr><td>' + esc(d.label) + '</td><td>' + fmt(d.totalValue) + unit + '</td><td>' + fmt(d.nativeDisplayValue) + unit + '</td><td>' + controls + '</td></tr>';
     },this).join("");
-    return '<div class="backdrop"><section class="dialog" role="dialog" aria-modal="true" aria-label="Фиксация показаний">' +
-      '<h2>Фиксация показаний</h2><div class="note">Для фиксации показаний нажмите кнопку пробуждения на счетчике и кнопку Сохранить на этой форме.</div>' +
+    return '<div class="backdrop"><section class="dialog" role="dialog" aria-modal="true" aria-label="Корректировки показаний">' +
+      '<h2>Корректировки показаний</h2><div class="note">Для сохранения корректировки в устройстве нажмите одновременно кнопку пробуждения счетчика на счетчике и кнопку сохранить в устройстве на этой форме.</div>' +
       '<table><thead><tr><th></th><th>Новое значение</th><th>Текущее значение</th><th>Корректировка</th></tr></thead><tbody>' + rows + '</tbody></table>' +
-      '<div class="actions"><button class="cancel" type="button" ' + (this._busy ? "disabled" : "") + '>Отмена</button>' +
-      '<button class="confirm" type="button" ' + (this._busy ? "disabled" : "") + '>' + (this._busy ? "Ожидание…" : "Сохранить") + '</button></div></section></div>';
+      '<div class="actions"><button class="cancel" type="button" ' + (this._busy ? "disabled" : "") + '>Сохранить в HA</button>' +
+      '<button class="confirm" type="button" ' + (this._busy ? "disabled" : "") + '>' + (this._busy ? "Ожидание…" : "Сохранить в устройстве") + '</button></div></section></div>';
   }
 
   async _adjust(entityId,direction) {
