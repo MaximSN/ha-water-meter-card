@@ -64,7 +64,7 @@ class WaterMeterCard extends HTMLElement {
     return document.createElement("ha-water-meter-card-editor");
   }
   static getStubConfig() {
-    return { name: "Счётчики воды", hot_label: "ГВС", hot_color: [229, 57, 53], show_battery_signal_values: false };
+    return {};
   }
   setConfig(config) {
     if (!config) throw new Error("Не задана конфигурация карточки");
@@ -335,10 +335,12 @@ class WaterMeterCardEditor extends HTMLElement {
   }
 
   setConfig(config) {
-    this._config = cleanConfig(config);
+    var nextConfig = cleanConfig(config);
+    var changed = !sameValue(this._config,nextConfig);
+    this._config = nextConfig;
     if (!this._forms.common) {
       this._createForm();
-    } else {
+    } else if (changed) {
       this._renderForms();
     }
   }
@@ -405,8 +407,22 @@ class WaterMeterCardEditor extends HTMLElement {
       form.hass = this._hass;
       form.computeLabel = function(schema){return schema.label || schema.name;};
       form.addEventListener("value-changed",function(event) {
-        this._config = Object.assign({},this._config,event.detail.value);
-        this._config = cleanConfig(this._config);
+        var schema = form.schema || [];
+        var formKeys = schema.map(function(item){return item.name;});
+        var formConfig = Object.assign({},event.detail && event.detail.value || {});
+        schema.forEach(function(item) {
+          if (item.selector && item.selector.text && formConfig[item.name] === undefined) {
+            formConfig[item.name] = "";
+          }
+        });
+        var nextConfig = Object.assign({},this._config);
+        formKeys.forEach(function(key){delete nextConfig[key];});
+        formKeys.forEach(function(key) {
+          if (Object.prototype.hasOwnProperty.call(formConfig,key)) {
+            nextConfig[key] = formConfig[key];
+          }
+        });
+        this._config = cleanConfig(nextConfig);
         this.dispatchEvent(new CustomEvent("config-changed",{
           detail:{config:this._config},
           bubbles:true,
@@ -433,8 +449,6 @@ class WaterMeterCardEditor extends HTMLElement {
     keys.forEach(function(key) {
       if (Object.prototype.hasOwnProperty.call(this._config,key)) {
         data[key] = this._config[key];
-      } else if (Object.prototype.hasOwnProperty.call(DEFAULTS,key)) {
-        data[key] = DEFAULTS[key];
       }
     },this);
     return data;
