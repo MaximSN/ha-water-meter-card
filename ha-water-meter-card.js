@@ -1,4 +1,3 @@
-const VERSION = "0.1.2";
 const DEFAULTS = {
   name: "Счётчики воды",
   hot_label: "ГВС",
@@ -314,4 +313,3 @@ if (!customElements.get("ha-water-meter-card")) customElements.define("ha-water-
 if (!customElements.get("ha-water-meter-card-editor")) customElements.define("ha-water-meter-card-editor",WaterMeterCardEditor);
 window.customCards=window.customCards||[];
 window.customCards.push({type:"ha-water-meter-card",name:"Water Meter Card",description:"Карточка двухканального счётчика воды с софт-корректировками и ручной фиксацией показаний."});
-console.info("%c WATER METER CARD %c "+VERSION,"color:white;background:#039be5;font-weight:bold;","color:#039be5;background:white;font-weight:bold;");
