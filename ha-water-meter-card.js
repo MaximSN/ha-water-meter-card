@@ -202,9 +202,9 @@ class WaterMeterCard extends HTMLElement {
   _renderDialog(channels) {
     var rows = channels.map(function(d){
       var unit = d.unit ? ' ' + esc(d.unit) : "";
-      var correctionVisible = d.displayCorrection != null && d.displayCorrection !== 0;
+      var correctionVisible = d.displayCorrection != null;
       var correctionText = correctionVisible
-        ? (d.displayCorrection > 0 ? "+" : "−") + fmt(Math.abs(d.displayCorrection)) + unit
+        ? (d.displayCorrection > 0 ? "+" : d.displayCorrection < 0 ? "−" : "") + fmt(Math.abs(d.displayCorrection)) + unit
         : "";
       var correctionColor = d.displayCorrection > 0 ? "#43a047" : d.displayCorrection < 0 ? "#e53935" : "var(--secondary-text-color)";
       var unavailable = !d.correctionEntity || d.correction == null || this._busy;
