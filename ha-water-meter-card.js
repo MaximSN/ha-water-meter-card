@@ -3,8 +3,8 @@ const DEFAULTS = {
   name: "Счётчики воды",
   hot_label: "ГВС",
   cold_label: "ХВС",
-  hot_color: "#e53935",
-  cold_color: "#1e88e5",
+  hot_color: [229, 57, 53],
+  cold_color: [30, 136, 229],
   correction_step: 0.001,
   show_correction: true
 };
@@ -25,6 +25,10 @@ function fmt(n) {
   return n == null ? "—" : new Intl.NumberFormat("ru-RU", {maximumFractionDigits:3}).format(n);
 }
 function round(n) { return Number(Number(n).toFixed(6)); }
+function cssColor(value,fallback) {
+  if (Array.isArray(value) && value.length >= 3) return "rgb(" + value.slice(0,3).map(Number).join(",") + ")";
+  return typeof value === "string" && value ? value : fallback;
+}
 
 class WaterMeterCard extends HTMLElement {
   constructor() {
@@ -62,7 +66,7 @@ class WaterMeterCard extends HTMLElement {
     return {
       key:key,
       label:c[hot ? "hot_label" : "cold_label"],
-      color:c[hot ? "hot_color" : "cold_color"],
+      color:cssColor(c[hot ? "hot_color" : "cold_color"],hot ? "#e53935" : "#1e88e5"),
       meter:c[hot ? "hot_meter" : "cold_meter"] || "",
       sensor:sensor,
       correctionEntity:correctionEntity,
