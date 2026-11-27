@@ -8,8 +8,6 @@ const DEFAULTS = {
   show_zero_correction: false,
   show_battery_signal_values: false,
   secondary_info: "last-changed",
-  hot_coefficient: 1,
-  cold_coefficient: 1
 };
 
 function esc(v) {
@@ -67,7 +65,7 @@ class WaterMeterCard extends HTMLElement {
     return document.createElement("ha-water-meter-card-editor");
   }
   static getStubConfig() {
-    return { name: "Счётчики воды", hot_label: "ГВС", cold_label: "ХВС", hot_coefficient: 1, cold_coefficient: 1, show_correction: true, show_zero_correction: false, show_battery_signal_values: false };
+    return { name: "Счётчики воды", hot_label: "ГВС", cold_label: "ХВС", show_correction: true, show_zero_correction: false, show_battery_signal_values: false };
   }
   setConfig(config) {
     if (!config) throw new Error("Не задана конфигурация карточки");
@@ -87,11 +85,12 @@ class WaterMeterCard extends HTMLElement {
     var sensor = c[hot ? "hot_sensor" : "cold_sensor"];
     var correctionEntity = c[hot ? "hot_correction" : "cold_correction"];
     var numberEntity = c[hot ? "hot_number" : "cold_number"];
-    var coefficient = Number(c[hot ? "hot_coefficient" : "cold_coefficient"]);
-    if (!Number.isFinite(coefficient) || coefficient <= 0) coefficient = 1;
     var value = num(this._hass,sensor);
     var correction = num(this._hass,correctionEntity) || 0;
     var nativeValue = num(this._hass,numberEntity);
+    var denominator = nativeValue == null ? null : nativeValue + correction;
+    var coefficient = value != null && denominator != null && denominator !== 0 ? value / denominator : null;
+    if (!Number.isFinite(coefficient) || coefficient <= 0) coefficient = null;
     var correctionAttributes = this._hass && this._hass.states[correctionEntity]
       ? this._hass.states[correctionEntity].attributes || {}
       : {};
@@ -116,9 +115,9 @@ class WaterMeterCard extends HTMLElement {
       correctionStep:correctionStep,
       nativeValue:nativeValue,
       coefficient:coefficient,
-      displayCorrection:correction / coefficient,
-      totalValue:value == null ? null : value + correction * coefficient,
-      nativeDisplayValue:nativeValue == null ? null : nativeValue / coefficient,
+      displayCorrection:coefficient == null ? null : correction * coefficient,
+      totalValue:value,
+      nativeDisplayValue:nativeValue == null || coefficient == null ? null : nativeValue * coefficient,
       unit:(this._hass && this._hass.states[sensor] && this._hass.states[sensor].attributes && this._hass.states[sensor].attributes.unit_of_measurement) || "",
       lastChanged:(this._hass && this._hass.states[sensor] && this._hass.states[sensor].last_changed) || "",
       lastUpdated:(this._hass && this._hass.states[sensor] && this._hass.states[sensor].last_updated) || ""
@@ -182,7 +181,7 @@ class WaterMeterCard extends HTMLElement {
   }
 
   _renderChannel(d) {
-    var correction=d.displayCorrection!==0||this._config.show_zero_correction===true
+    var correction=d.displayCorrection!=null&&(d.displayCorrection!==0||this._config.show_zero_correction===true)
       ? '<span class="correction" style="color:'+(d.displayCorrection>0?"#43a047":d.displayCorrection<0?"#e53935":"var(--secondary-text-color)")+'">'+(d.displayCorrection>0?"+":d.displayCorrection<0?"−":"")+fmt(Math.abs(d.displayCorrection))+'</span>'
       : "";
     var unavailable=!d.correctionEntity||d.correction==null||this._busy;
@@ -212,10 +211,10 @@ class WaterMeterCard extends HTMLElement {
       return '<tr><td>' + esc(d.label) + '</td><td>' + fmt(d.totalValue) + unit + '</td><td>' + fmt(d.nativeDisplayValue) + unit + '</td><td>' + fmt(d.displayCorrection) + unit + '</td></tr>';
     }).join("");
     return '<div class="backdrop"><section class="dialog" role="dialog" aria-modal="true" aria-label="Фиксация показаний">' +
-      '<h2>Фиксация показаний</h2><div class="note">После подтверждения итоговые значения будут отправлены в прибор. Поправка каждого канала обнулится только после подтверждения записи этого канала.</div>' +
-      '<table><thead><tr><th></th><th>Итог</th><th>В приборе</th><th>Поправка</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+      '<h2>Фиксация показаний</h2><div class="note">Для фиксации показаний нажмите кнопку пробуждения на счетчике и кнопку Сохранить на этой форме.</div>' +
+      '<table><thead><tr><th></th><th>Новое значение</th><th>Текущее значение</th><th>Корректировка</th></tr></thead><tbody>' + rows + '</tbody></table>' +
       '<div class="actions"><button class="cancel" type="button" ' + (this._busy ? "disabled" : "") + '>Отмена</button>' +
-      '<button class="confirm" type="button" ' + (this._busy ? "disabled" : "") + '>' + (this._busy ? "Ожидание…" : "Подтвердить запись") + '</button></div></section></div>';
+      '<button class="confirm" type="button" ' + (this._busy ? "disabled" : "") + '>' + (this._busy ? "Ожидание…" : "Сохранить") + '</button></div></section></div>';
   }
 
   async _adjust(entityId,direction) {
@@ -246,7 +245,7 @@ class WaterMeterCard extends HTMLElement {
     if (this._busy) return;
     var self = this;
     var channels = [this._channel("hot"),this._channel("cold")];
-    if (channels.some(function(d){return !d.sensor || !d.numberEntity || !d.correctionEntity || d.totalValue == null;})) {
+    if (channels.some(function(d){return !d.sensor || !d.numberEntity || !d.correctionEntity || d.totalValue == null || d.coefficient == null;})) {
       alert("Для фиксации выберите итоговые сенсоры, сущности number и input_number для обоих каналов.");
       return;
     }
@@ -287,7 +286,7 @@ class WaterMeterCard extends HTMLElement {
       var reset = await Promise.all(channels.map(async function(d,i){
         if (!confirmed[i]) return false;
         try {
-          await self._hass.callService("input_number","set_value",{entity_id:d.correctionEntity,value:d.correctionMin});
+          await self._hass.callService("input_number","set_value",{entity_id:d.correctionEntity,value:0});
           return true;
         } catch(e) { return false; }
       }));
@@ -350,7 +349,6 @@ class WaterMeterCardEditor extends HTMLElement {
       {name:"hot_sensor",label:"Сенсор показаний",selector:entity("sensor")},
       {name:"hot_correction",label:"Корректировка",selector:entity("input_number")},
       {name:"hot_number",label:"Целевой канал прибора (L3)",selector:entity("number")},
-      {name:"hot_coefficient",label:"Коэффициент пересчёта",selector:{number:{min:0.001,max:1000000,step:0.001,mode:"box"}}},
       {name:"hot_label",label:"Название счётчика",selector:{text:{}}},
       {name:"hot_color",label:"Цвет счётчика",selector:{color_rgb:{}}},
 
@@ -358,7 +356,6 @@ class WaterMeterCardEditor extends HTMLElement {
       {name:"cold_sensor",label:"Сенсор показаний",selector:entity("sensor")},
       {name:"cold_correction",label:"Корректировка",selector:entity("input_number")},
       {name:"cold_number",label:"Целевой канал прибора (L5)",selector:entity("number")},
-      {name:"cold_coefficient",label:"Коэффициент пересчёта",selector:{number:{min:0.001,max:1000000,step:0.001,mode:"box"}}},
       {name:"cold_label",label:"Название счётчика",selector:{text:{}}},
       {name:"cold_color",label:"Цвет счётчика",selector:{color_rgb:{}}},
 
