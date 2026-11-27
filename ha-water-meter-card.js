@@ -117,7 +117,7 @@ class WaterMeterCard extends HTMLElement {
       nativeValue:nativeValue,
       coefficient:coefficient,
       displayCorrection:correction * coefficient,
-      totalValue:value,
+      totalValue:value == null ? null : value + correction * coefficient,
       nativeDisplayValue:nativeValue == null ? null : nativeValue * coefficient,
       unit:(this._hass && this._hass.states[sensor] && this._hass.states[sensor].attributes && this._hass.states[sensor].attributes.unit_of_measurement) || "",
       lastChanged:(this._hass && this._hass.states[sensor] && this._hass.states[sensor].last_changed) || "",
@@ -193,7 +193,7 @@ class WaterMeterCard extends HTMLElement {
       '<button type="button" data-adjust data-entity="'+esc(d.correctionEntity)+'" data-delta="1" aria-label="Увеличить" '+plusDisabled+'>+</button></span>';
     var secondary=this._renderSecondary(d);
     return '<div class="meter-block"><div class="meter">'+icon+'<span class="label clickable" data-more-info="'+esc(d.sensor)+'" title="Открыть сенсор">'+esc(d.label)+'</span><span class="meter-no clickable" data-more-info="'+esc(d.sensor)+'" title="Открыть сенсор">'+esc(d.meter)+'</span>'+
-      '<span class="adjustment">'+adjustment+'</span><span class="reading clickable" data-more-info="'+esc(d.sensor)+'" title="Открыть сенсор"><span class="value">'+fmt(d.totalValue)+'</span>'+(d.unit?'<span class="unit">'+esc(d.unit)+'</span>':"")+'</span></div>'+
+      '<span class="adjustment">'+adjustment+'</span><span class="reading clickable" data-more-info="'+esc(d.sensor)+'" title="Открыть сенсор"><span class="value">'+fmt(d.value)+'</span>'+(d.unit?'<span class="unit">'+esc(d.unit)+'</span>':"")+'</span></div>'+
       (secondary?'<div class="secondary">'+secondary+'</div>':"")+'</div>';
   }
 
