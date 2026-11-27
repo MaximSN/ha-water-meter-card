@@ -1,4 +1,4 @@
-const VERSION = "0.1.0";
+const VERSION = "0.1.1";
 const DEFAULTS = {
   name: "Счётчики воды",
   hot_label: "ГВС",
@@ -234,9 +234,27 @@ class WaterMeterCardEditor extends HTMLElement {
     this.attachShadow({mode:"open"});
     this._config = Object.assign({},DEFAULTS);
     this._hass = null;
+    this._form = null;
   }
-  set hass(value) { this._hass=value; this._render(); }
-  setConfig(config) { this._config=Object.assign({},DEFAULTS,config); this._render(); }
+  set hass(value) {
+    this._hass = value;
+    if (this._form) {
+      this._form.hass = value;
+    } else {
+      this._createForm();
+    }
+  }
+  setConfig(config) {
+    this._config = Object.assign({},DEFAULTS,config);
+    if (!this._form) {
+      this._createForm();
+      return;
+    }
+    var nextData = Object.assign({},DEFAULTS,this._config);
+    if (JSON.stringify(this._form.data) !== JSON.stringify(nextData)) {
+      this._form.data = nextData;
+    }
+  }
   _schema() {
     var entity = function(domain){return {entity:{domain:domain}};};
     return [
@@ -247,8 +265,8 @@ class WaterMeterCardEditor extends HTMLElement {
       {name:"signal_sensor",label:"Сенсор уровня сигнала",selector:entity("sensor")},
       {name:"hot_correction",label:"Поправка ГВС (input_number)",selector:entity("input_number")},
       {name:"cold_correction",label:"Поправка ХВС (input_number)",selector:entity("input_number")},
-      {name:"hot_number",label:"Сущность записи ГВС (L3)",selector:entity("number")},
-      {name:"cold_number",label:"Сущность записи ХВС (L5)",selector:entity("number")},
+      {name:"hot_number",label:"Сущность записи ГВС",selector:entity("number")},
+      {name:"cold_number",label:"Сущность записи ХВС",selector:entity("number")},
       {name:"hot_meter",label:"Номер счётчика ГВС",selector:{text:{}}},
       {name:"cold_meter",label:"Номер счётчика ХВС",selector:{text:{}}},
       {name:"hot_label",label:"Подпись ГВС",selector:{text:{}}},
@@ -259,18 +277,21 @@ class WaterMeterCardEditor extends HTMLElement {
       {name:"show_correction",label:"Показывать накопленную корректировку",selector:{boolean:{}}}
     ];
   }
-  _render() {
-    if (!this.shadowRoot || !this._hass) return;
-    this.shadowRoot.innerHTML="<ha-form></ha-form>";
-    var form=this.shadowRoot.querySelector("ha-form");
-    form.hass=this._hass;
-    form.data=Object.assign({},DEFAULTS,this._config);
-    form.schema=this._schema();
-    form.computeLabel=function(schema){return schema.label || schema.name;};
-    var self=this;
-    form.addEventListener("value-changed",function(event){
-      self._config=Object.assign({},self._config,event.detail.value);
-      self.dispatchEvent(new CustomEvent("config-changed",{detail:{config:self._config},bubbles:true,composed:true}));
+  _createForm() {
+    if (!this.shadowRoot || !this._hass || this._form) return;
+    this.shadowRoot.innerHTML = "<ha-form></ha-form>";
+    this._form = this.shadowRoot.querySelector("ha-form");
+    this._form.hass = this._hass;
+    this._form.schema = this._schema();
+    this._form.data = Object.assign({},DEFAULTS,this._config);
+    this._form.computeLabel = function(schema){return schema.label || schema.name;};
+    this._form.addEventListener("value-changed",event => {
+      this._config = Object.assign({},this._config,event.detail.value);
+      this.dispatchEvent(new CustomEvent("config-changed",{
+        detail:{config:this._config},
+        bubbles:true,
+        composed:true
+      }));
     });
   }
 }
